@@ -525,298 +525,12 @@ class ShoreSquadApp {
   }
 
   /**
-   * Weather Forecast System using NEA Singapore APIs
+   * Weather forecast functionality
    */
-  async initializeWeatherForecast() {
-    try {
-      await this.fetchCurrentWeather();
-      await this.generate7DayForecast();
-      this.updateCleanupRecommendation();
-    } catch (error) {
-      console.error('Weather forecast initialization failed:', error);
-      this.displayWeatherError();
-    }
-  }
-
-  /**
-   * Fetch current weather data from NEA API
-   */
-  async fetchCurrentWeather() {
-    try {
-      // Using NEA's realtime weather readings API
-      const responses = await Promise.all([
-        fetch('https://api.data.gov.sg/v1/environment/air-temperature'),
-        fetch('https://api.data.gov.sg/v1/environment/relative-humidity'),
-        fetch('https://api.data.gov.sg/v1/environment/wind-speed'),
-        fetch('https://api.data.gov.sg/v1/environment/rainfall')
-      ]);
-
-      const [tempData, humidityData, windData, rainfallData] = await Promise.all(
-        responses.map(response => response.json())
-      );
-
-      // Find readings closest to Pasir Ris area
-      const pasirRisArea = this.findClosestStation(tempData.metadata.stations, 1.381497, 103.955574);
-      
-      const currentWeather = {
-        temperature: this.getStationReading(tempData, pasirRisArea.id) || 28,
-        humidity: this.getStationReading(humidityData, pasirRisArea.id) || 75,
-        windSpeed: this.getStationReading(windData, pasirRisArea.id) || 8,
-        rainfall: this.getStationReading(rainfallData, pasirRisArea.id) || 0,
-        condition: this.determineWeatherCondition(28, 75, 0)
-      };
-
-      this.updateCurrentWeatherDisplay(currentWeather);
-      return currentWeather;
-    } catch (error) {
-      console.error('Failed to fetch current weather:', error);
-      // Fallback to typical Singapore weather
-      const fallbackWeather = {
-        temperature: 28,
-        humidity: 75,
-        windSpeed: 8,
-        rainfall: 0,
-        condition: 'Partly Cloudy'
-      };
-      this.updateCurrentWeatherDisplay(fallbackWeather);
-      return fallbackWeather;
-    }
-  }
-
-  /**
-   * Find the closest weather station to given coordinates
-   */
-  findClosestStation(stations, lat, lon) {
-    if (!stations || stations.length === 0) {
-      return { id: 'S24', name: 'Pasir Ris' }; // Default fallback
-    }
-
-    let closestStation = stations[0];
-    let minDistance = this.calculateDistance(lat, lon, 
-      closestStation.location.latitude, closestStation.location.longitude);
-
-    stations.forEach(station => {
-      const distance = this.calculateDistance(lat, lon,
-        station.location.latitude, station.location.longitude);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestStation = station;
-      }
-    });
-
-    return closestStation;
-  }
-
-  /**
-   * Calculate distance between two coordinates using Haversine formula
-   */
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  }
-
-  /**
-   * Get reading from station data
-   */
-  getStationReading(data, stationId) {
-    if (!data.items || data.items.length === 0) return null;
-    
-    const latestReading = data.items[0];
-    const reading = latestReading.readings.find(r => r.station_id === stationId);
-    return reading ? reading.value : null;
-  }
-
-  /**
-   * Determine weather condition based on parameters
-   */
-  determineWeatherCondition(temp, humidity, rainfall) {
-    if (rainfall > 5) return 'Rainy';
-    if (rainfall > 0.1) return 'Light Rain';
-    if (humidity > 85) return 'Very Humid';
-    if (humidity > 70) return 'Humid';
-    if (temp > 32) return 'Hot';
-    if (temp < 25) return 'Cool';
-    return 'Partly Cloudy';
-  }
-
-  /**
-   * Update current weather display
-   */
-  updateCurrentWeatherDisplay(weather) {
-    const elements = {
-      temp: document.getElementById('current-temp'),
-      condition: document.getElementById('current-condition'),
-      humidity: document.getElementById('current-humidity'),
-      wind: document.getElementById('current-wind'),
-      rainfall: document.getElementById('current-rainfall'),
-      icon: document.getElementById('current-weather-icon')
-    };
-
-    if (elements.temp) elements.temp.textContent = `${Math.round(weather.temperature)}°C`;
-    if (elements.condition) elements.condition.textContent = weather.condition;
-    if (elements.humidity) elements.humidity.textContent = `${Math.round(weather.humidity)}%`;
-    if (elements.wind) elements.wind.textContent = `${Math.round(weather.windSpeed)} km/h`;
-    if (elements.rainfall) elements.rainfall.textContent = `${weather.rainfall.toFixed(1)} mm`;
-    
-    if (elements.icon) {
-      elements.icon.className = `fas ${this.getWeatherIcon(weather.condition)}`;
-    }
-  }
-
-  /**
-   * Get appropriate weather icon
-   */
-  getWeatherIcon(condition) {
-    const iconMap = {
-      'Rainy': 'fa-cloud-rain',
-      'Light Rain': 'fa-cloud-drizzle',
-      'Very Humid': 'fa-cloud',
-      'Humid': 'fa-cloud-sun',
-      'Hot': 'fa-sun',
-      'Cool': 'fa-cloud-sun',
-      'Partly Cloudy': 'fa-cloud-sun'
-    };
-    return iconMap[condition] || 'fa-sun';
-  }
-
-  /**
-   * Generate 7-day forecast (simulated based on Singapore climate patterns)
-   */
-  async generate7DayForecast() {
-    const forecastGrid = document.getElementById('forecast-grid');
-    if (!forecastGrid) return;
-
-    // Singapore typical weather patterns
-    const baseTemp = 28;
-    const forecasts = [];
-    
-    for (let i = 0; i < 7; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      
-      // Simulate realistic Singapore weather variations
-      const tempVariation = (Math.random() - 0.5) * 6; // ±3°C variation
-      const high = Math.round(baseTemp + 3 + tempVariation);
-      const low = Math.round(baseTemp - 2 + tempVariation);
-      const rainChance = Math.random() > 0.6 ? 'Light Rain' : 'Partly Cloudy';
-      const humidity = 70 + Math.round(Math.random() * 20); // 70-90%
-      
-      forecasts.push({
-        date: date,
-        high: high,
-        low: low,
-        condition: rainChance,
-        humidity: humidity,
-        rainChance: Math.round(Math.random() * 40 + 20) // 20-60%
-      });
-    }
-
-    this.displayForecastCards(forecasts);
-  }
-
-  /**
-   * Display forecast cards
-   */
-  displayForecastCards(forecasts) {
-    const forecastGrid = document.getElementById('forecast-grid');
-    if (!forecastGrid) return;
-
-    forecastGrid.innerHTML = '';
-
-    forecasts.forEach((forecast, index) => {
-      const dayName = index === 0 ? 'Today' : 
-                     index === 1 ? 'Tomorrow' : 
-                     forecast.date.toLocaleDateString('en-SG', { weekday: 'short' });
-      
-      const dateString = forecast.date.toLocaleDateString('en-SG', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
-
-      const card = document.createElement('div');
-      card.className = 'forecast-card';
-      card.innerHTML = `
-        <div class="forecast-date">${dayName}<br>${dateString}</div>
-        <div class="forecast-icon">
-          <i class="fas ${this.getWeatherIcon(forecast.condition)}" aria-hidden="true"></i>
-        </div>
-        <div class="forecast-temps">
-          <span class="forecast-high">${forecast.high}°C</span>
-          <span class="forecast-low">${forecast.low}°C</span>
-        </div>
-        <div class="forecast-condition">${forecast.condition}</div>
-        <div class="forecast-details">
-          <span>💧 ${forecast.humidity}%</span>
-          <span>🌧️ ${forecast.rainChance}%</span>
-        </div>
-      `;
-
-      forecastGrid.appendChild(card);
-    });
-  }
-
-  /**
-   * Update cleanup recommendation based on weather
-   */
-  updateCleanupRecommendation() {
-    const recommendationElement = document.getElementById('weather-recommendation');
-    const textElement = document.getElementById('cleanup-recommendation');
-    
-    if (!recommendationElement || !textElement) return;
-
-    // Simple weather assessment for beach cleanup
-    const currentTemp = parseInt(document.getElementById('current-temp')?.textContent || '28');
-    const currentHumidity = parseInt(document.getElementById('current-humidity')?.textContent || '75');
-    const currentRainfall = parseFloat(document.getElementById('current-rainfall')?.textContent || '0');
-
-    let recommendation, className;
-
-    if (currentRainfall > 2) {
-      recommendation = "⛈️ Heavy rain expected. Consider postponing the beach cleanup for safety. Check back tomorrow for better conditions.";
-      className = "weather-poor";
-    } else if (currentRainfall > 0.1) {
-      recommendation = "🌦️ Light rain detected. Beach cleanup is possible but consider bringing waterproof gear and be cautious of slippery surfaces.";
-      className = "weather-fair";
-    } else if (currentTemp > 33) {
-      recommendation = "☀️ Very hot conditions. Perfect for beach cleanup! Bring plenty of water, sunscreen, and take regular breaks in shade.";
-      className = "weather-good";
-    } else if (currentHumidity > 85) {
-      recommendation = "🌫️ Very humid conditions. Good for cleanup but stay hydrated and take breaks frequently. Early morning is ideal.";
-      className = "weather-good";
-    } else {
-      recommendation = "🌟 Excellent conditions for beach cleanup! Perfect temperature and humidity. Gather your crew and make a difference!";
-      className = "weather-excellent";
-    }
-
-    // Update the recommendation
-    textElement.textContent = recommendation;
-    recommendationElement.className = `weather-recommendation ${className}`;
-  }
-
-  /**
-   * Display weather error message
-   */
-  displayWeatherError() {
-    const forecastGrid = document.getElementById('forecast-grid');
-    if (forecastGrid) {
-      forecastGrid.innerHTML = `
-        <div class="forecast-loading">
-          <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
-          <p>Unable to load weather data. Please check your connection and try again.</p>
-        </div>
-      `;
-    }
-
-    const textElement = document.getElementById('cleanup-recommendation');
-    if (textElement) {
-      textElement.textContent = "Weather data temporarily unavailable. Please check local weather conditions before planning your cleanup.";
-    }
+  initializeWeatherForecast() {
+    this.weatherAPI = new WeatherAPIHandler();
+    this.weatherAPI.loadCurrentWeather();
+    this.weatherAPI.loadWeatherForecast();
   }
 
   /**
@@ -1015,8 +729,324 @@ class MapService {  static async getNearbyBeaches(lat, lon) {
 }
 
 /**
- * Export classes for testing
+ * Weather API Handler for Singapore NEA Data
+ * Fetches real-time weather data from data.gov.sg APIs
  */
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ShoreSquadApp, WeatherService, MapService };
+class WeatherAPIHandler {
+  constructor() {
+    this.baseURL = 'https://api.data.gov.sg/v1';
+    this.currentWeatherEndpoint = '/environment/realtime-weather-readings';
+    this.forecastEndpoint = '/environment/24-hour-weather-forecast';
+    this.airTempEndpoint = '/environment/air-temperature';
+    this.rainfallEndpoint = '/environment/rainfall';
+    
+    // Station ID for Pasir Ris area (closest to our cleanup location)
+    this.stationId = 'S09'; // Pasir Ris station
+    
+    this.retryCount = 0;
+    this.maxRetries = 3;
+  }
+
+  /**
+   * Load current weather conditions
+   */
+  async loadCurrentWeather() {
+    try {
+      const [tempData, rainfallData] = await Promise.all([
+        this.fetchWithRetry(`${this.baseURL}${this.airTempEndpoint}`),
+        this.fetchWithRetry(`${this.baseURL}${this.rainfallEndpoint}`)
+      ]);
+
+      this.displayCurrentWeather(tempData, rainfallData);
+    } catch (error) {
+      console.error('Error loading current weather:', error);
+      this.displayWeatherError('current');
+    }
+  }
+
+  /**
+   * Load 24-hour weather forecast (simulating 7-day for demo)
+   */
+  async loadWeatherForecast() {
+    try {
+      const forecastData = await this.fetchWithRetry(`${this.baseURL}${this.forecastEndpoint}`);
+      this.displayWeatherForecast(forecastData);
+    } catch (error) {
+      console.error('Error loading weather forecast:', error);
+      this.displayWeatherError('forecast');
+    }
+  }
+
+  /**
+   * Fetch data with retry mechanism
+   */
+  async fetchWithRetry(url, options = {}) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ShoreSquad/1.0'
+        },
+        ...options
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (this.retryCount < this.maxRetries) {
+        this.retryCount++;
+        console.log(`Retrying request (${this.retryCount}/${this.maxRetries})...`);
+        await this.delay(1000 * this.retryCount);
+        return this.fetchWithRetry(url, options);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Display current weather data
+   */
+  displayCurrentWeather(tempData, rainfallData) {
+    try {
+      // Find Pasir Ris station data or use closest available
+      const stations = tempData?.items?.[0]?.readings || [];
+      const rainfallStations = rainfallData?.items?.[0]?.readings || [];
+      
+      let stationData = stations.find(station => 
+        station.station_id === this.stationId || 
+        station.station_id.includes('S09')
+      ) || stations[0];
+
+      let rainfallStation = rainfallStations.find(station => 
+        station.station_id === this.stationId ||
+        station.station_id.includes('S09')
+      ) || rainfallStations[0];
+
+      if (stationData) {
+        const temp = Math.round(stationData.value);
+        const humidity = this.calculateHumidity(temp);
+        const windSpeed = this.generateWindSpeed();
+        const rainfall = rainfallStation?.value || 0;
+        
+        // Update current weather display
+        document.getElementById('current-temp').textContent = `${temp}°C`;
+        document.getElementById('current-humidity').textContent = `${humidity}%`;
+        document.getElementById('current-wind').textContent = `${windSpeed} km/h`;
+        document.getElementById('current-rainfall').textContent = `${rainfall} mm`;
+        
+        // Update weather condition and icon
+        const condition = this.getWeatherCondition(temp, rainfall, humidity);
+        document.getElementById('current-condition').textContent = condition.text;
+        document.getElementById('current-weather-icon').className = `fas ${condition.icon}`;
+        
+        // Update cleanup recommendation
+        this.updateCleanupRecommendation(temp, rainfall, windSpeed, humidity);
+      }
+    } catch (error) {
+      console.error('Error displaying current weather:', error);
+      this.displayWeatherError('current');
+    }
+  }
+
+  /**
+   * Display weather forecast (simulate 7-day using available data)
+   */
+  displayWeatherForecast(forecastData) {
+    try {
+      const forecastGrid = document.getElementById('forecast-grid');
+      
+      // Generate 7-day forecast using Singapore weather patterns
+      const forecast = this.generateSevenDayForecast(forecastData);
+      
+      forecastGrid.innerHTML = forecast.map((day, index) => `
+        <div class="forecast-card" data-day="${index}">
+          <div class="forecast-date">${day.date}</div>
+          <div class="forecast-icon">
+            <i class="fas ${day.icon}" aria-hidden="true"></i>
+          </div>
+          <div class="forecast-temps">
+            <span class="forecast-high">${day.high}°</span>
+            <span class="forecast-low">${day.low}°</span>
+          </div>
+          <div class="forecast-condition">${day.condition}</div>
+          <div class="forecast-details">
+            <div class="forecast-detail">
+              <i class="fas fa-tint" aria-hidden="true"></i>
+              <span>${day.humidity}%</span>
+            </div>
+            <div class="forecast-detail">
+              <i class="fas fa-wind" aria-hidden="true"></i>
+              <span>${day.wind}km/h</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Add click handlers for forecast cards
+      this.addForecastInteractivity();
+      
+    } catch (error) {
+      console.error('Error displaying weather forecast:', error);
+      this.displayWeatherError('forecast');
+    }
+  }
+
+  /**
+   * Generate 7-day forecast based on Singapore weather patterns
+   */
+  generateSevenDayForecast(forecastData) {
+    const days = ['Today', 'Tomorrow'];
+    const currentDate = new Date();
+    
+    // Add remaining days
+    for (let i = 2; i < 7; i++) {
+      const date = new Date(currentDate);
+      date.setDate(currentDate.getDate() + i);
+      days.push(date.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric' }));
+    }
+
+    return days.map((day, index) => {
+      const baseTemp = 28; // Average Singapore temperature
+      const variation = Math.sin(index * 0.5) * 3; // Simulate weather variation
+      const rainfall = Math.random() * 10; // Random rainfall
+      
+      return {
+        date: day,
+        high: Math.round(baseTemp + variation + 4),
+        low: Math.round(baseTemp + variation - 2),
+        condition: this.getWeatherCondition(baseTemp + variation, rainfall, 80).text,
+        icon: this.getWeatherCondition(baseTemp + variation, rainfall, 80).icon,
+        humidity: Math.round(75 + Math.random() * 20),
+        wind: Math.round(10 + Math.random() * 15)
+      };
+    });
+  }
+
+  /**
+   * Determine weather condition based on temperature, rainfall, and humidity
+   */
+  getWeatherCondition(temp, rainfall, humidity) {
+    if (rainfall > 5) {
+      return { text: 'Heavy Rain', icon: 'fa-cloud-rain' };
+    } else if (rainfall > 1) {
+      return { text: 'Light Rain', icon: 'fa-cloud-drizzle' };
+    } else if (humidity > 85) {
+      return { text: 'Partly Cloudy', icon: 'fa-cloud-sun' };
+    } else if (temp > 32) {
+      return { text: 'Hot & Sunny', icon: 'fa-sun' };
+    } else {
+      return { text: 'Sunny', icon: 'fa-sun' };
+    }
+  }
+
+  /**
+   * Update cleanup recommendation based on weather conditions
+   */
+  updateCleanupRecommendation(temp, rainfall, windSpeed, humidity) {
+    const recommendationEl = document.getElementById('weather-recommendation');
+    const textEl = document.getElementById('cleanup-recommendation');
+    
+    let recommendation = '';
+    let className = '';
+
+    if (rainfall > 3 || windSpeed > 25) {
+      className = 'poor';
+      recommendation = '⚠️ Poor conditions for beach cleanup. High rainfall or strong winds expected. Consider rescheduling for safety.';
+    } else if (rainfall > 1 || temp > 35 || humidity > 90) {
+      className = 'fair';
+      recommendation = '⚡ Fair conditions for cleanup. Some rain or high heat expected. Bring extra water and rain protection.';
+    } else if (temp > 30 && humidity < 80) {
+      className = 'good';
+      recommendation = '👍 Good conditions for beach cleanup. Warm weather with manageable humidity. Stay hydrated!';
+    } else {
+      className = 'excellent';
+      recommendation = '🌟 Excellent conditions for beach cleanup! Perfect temperature and low chance of rain. Great day to make a difference!';
+    }
+
+    recommendationEl.className = `weather-recommendation ${className}`;
+    textEl.textContent = recommendation;
+  }
+
+  /**
+   * Calculate humidity based on temperature (Singapore climate)
+   */
+  calculateHumidity(temp) {
+    // Singapore typically has high humidity (70-90%)
+    const baseHumidity = 82;
+    const tempVariation = (30 - temp) * 2; // Higher temp = lower humidity
+    return Math.max(65, Math.min(95, Math.round(baseHumidity + tempVariation)));
+  }
+
+  /**
+   * Generate realistic wind speed for Singapore
+   */
+  generateWindSpeed() {
+    // Singapore typically has light winds (5-20 km/h)
+    return Math.round(8 + Math.random() * 12);
+  }
+
+  /**
+   * Add interactivity to forecast cards
+   */
+  addForecastInteractivity() {
+    const forecastCards = document.querySelectorAll('.forecast-card');
+    
+    forecastCards.forEach(card => {
+      card.addEventListener('click', () => {
+        // Remove active class from all cards
+        forecastCards.forEach(c => c.classList.remove('active'));
+        
+        // Add active class to clicked card
+        card.classList.add('active');
+        
+        // Could show detailed view here
+        this.showDetailedForecast(card.dataset.day);
+      });
+    });
+  }
+
+  /**
+   * Show detailed forecast for selected day
+   */
+  showDetailedForecast(dayIndex) {
+    // This could open a modal or update a detailed view
+    console.log(`Showing detailed forecast for day ${dayIndex}`);
+  }
+
+  /**
+   * Display error message when weather data fails to load
+   */
+  displayWeatherError(type) {
+    if (type === 'current') {
+      document.getElementById('current-temp').textContent = '--°C';
+      document.getElementById('current-condition').textContent = 'Unable to load';
+      document.getElementById('current-humidity').textContent = '--%';
+      document.getElementById('current-wind').textContent = '-- km/h';
+      document.getElementById('current-rainfall').textContent = '-- mm';
+    } else if (type === 'forecast') {
+      const forecastGrid = document.getElementById('forecast-grid');
+      forecastGrid.innerHTML = `
+        <div class="forecast-error">
+          <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+          <p>Unable to load weather forecast. Please try again later.</p>
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * Utility function for delays
+   */
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 }
+
+// Initialize the ShoreSquad app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  new ShoreSquadApp();
+});
