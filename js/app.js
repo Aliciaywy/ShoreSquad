@@ -694,13 +694,12 @@ window.addEventListener('appinstalled', (evt) => {
  * Weather API integration (placeholder)
  * In a real app, this would connect to a weather service
  */
-class WeatherService {
-  static async getWeatherForLocation(lat, lon) {
+class WeatherService {  static async getWeatherForLocation(lat, lon) {
     // Placeholder for weather API
     return {
-      temperature: Math.round(Math.random() * 30 + 60),
+      temperature: Math.round(Math.random() * 30 + 10), // Celsius: 10-40°C
       condition: 'sunny',
-      windSpeed: Math.round(Math.random() * 15 + 5),
+      windSpeed: Math.round(Math.random() * 25 + 5), // km/h: 5-30 km/h
       humidity: Math.round(Math.random() * 40 + 30)
     };
   }
@@ -710,13 +709,12 @@ class WeatherService {
  * Map integration (placeholder)
  * In a real app, this would integrate with Google Maps, Mapbox, etc.
  */
-class MapService {
-  static async getNearbyBeaches(lat, lon) {
+class MapService {  static async getNearbyBeaches(lat, lon) {
     // Placeholder for map API
     return [
-      { name: 'Sunset Beach', distance: '2.3 miles', cleanupNeeded: true },
-      { name: 'Ocean View Beach', distance: '5.1 miles', cleanupNeeded: false },
-      { name: 'Coastal Park Beach', distance: '7.8 miles', cleanupNeeded: true }
+      { name: 'Sunset Beach', distance: '3.7 km', cleanupNeeded: true },
+      { name: 'Ocean View Beach', distance: '8.2 km', cleanupNeeded: false },
+      { name: 'Coastal Park Beach', distance: '12.6 km', cleanupNeeded: true }
     ];
   }
 }
