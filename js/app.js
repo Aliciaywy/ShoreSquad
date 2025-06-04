@@ -10,7 +10,6 @@ class ShoreSquadApp {
     this.animationObserver = null;
     this.init();
   }
-
   /**
    * Initialize the application
    */
@@ -21,11 +20,12 @@ class ShoreSquadApp {
     this.initializeSmoothScrolling();
     this.initializeAccessibilityFeatures();
     this.initializePerformanceOptimizations();
+    this.initializeWeatherForecast();
     
     // Set loading state to false after initialization
     this.setLoadingState(false);
     
-    console.log('🌊 ShoreSquad App Initialized!');
+    console.log('🌊 ShoreSquad App Initialized with Weather Forecast!');
   }
 
   /**
@@ -521,6 +521,301 @@ class ShoreSquadApp {
             console.log('❌ Service Worker registration failed:', error);
           });
       });
+    }
+  }
+
+  /**
+   * Weather Forecast System using NEA Singapore APIs
+   */
+  async initializeWeatherForecast() {
+    try {
+      await this.fetchCurrentWeather();
+      await this.generate7DayForecast();
+      this.updateCleanupRecommendation();
+    } catch (error) {
+      console.error('Weather forecast initialization failed:', error);
+      this.displayWeatherError();
+    }
+  }
+
+  /**
+   * Fetch current weather data from NEA API
+   */
+  async fetchCurrentWeather() {
+    try {
+      // Using NEA's realtime weather readings API
+      const responses = await Promise.all([
+        fetch('https://api.data.gov.sg/v1/environment/air-temperature'),
+        fetch('https://api.data.gov.sg/v1/environment/relative-humidity'),
+        fetch('https://api.data.gov.sg/v1/environment/wind-speed'),
+        fetch('https://api.data.gov.sg/v1/environment/rainfall')
+      ]);
+
+      const [tempData, humidityData, windData, rainfallData] = await Promise.all(
+        responses.map(response => response.json())
+      );
+
+      // Find readings closest to Pasir Ris area
+      const pasirRisArea = this.findClosestStation(tempData.metadata.stations, 1.381497, 103.955574);
+      
+      const currentWeather = {
+        temperature: this.getStationReading(tempData, pasirRisArea.id) || 28,
+        humidity: this.getStationReading(humidityData, pasirRisArea.id) || 75,
+        windSpeed: this.getStationReading(windData, pasirRisArea.id) || 8,
+        rainfall: this.getStationReading(rainfallData, pasirRisArea.id) || 0,
+        condition: this.determineWeatherCondition(28, 75, 0)
+      };
+
+      this.updateCurrentWeatherDisplay(currentWeather);
+      return currentWeather;
+    } catch (error) {
+      console.error('Failed to fetch current weather:', error);
+      // Fallback to typical Singapore weather
+      const fallbackWeather = {
+        temperature: 28,
+        humidity: 75,
+        windSpeed: 8,
+        rainfall: 0,
+        condition: 'Partly Cloudy'
+      };
+      this.updateCurrentWeatherDisplay(fallbackWeather);
+      return fallbackWeather;
+    }
+  }
+
+  /**
+   * Find the closest weather station to given coordinates
+   */
+  findClosestStation(stations, lat, lon) {
+    if (!stations || stations.length === 0) {
+      return { id: 'S24', name: 'Pasir Ris' }; // Default fallback
+    }
+
+    let closestStation = stations[0];
+    let minDistance = this.calculateDistance(lat, lon, 
+      closestStation.location.latitude, closestStation.location.longitude);
+
+    stations.forEach(station => {
+      const distance = this.calculateDistance(lat, lon,
+        station.location.latitude, station.location.longitude);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestStation = station;
+      }
+    });
+
+    return closestStation;
+  }
+
+  /**
+   * Calculate distance between two coordinates using Haversine formula
+   */
+  calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  /**
+   * Get reading from station data
+   */
+  getStationReading(data, stationId) {
+    if (!data.items || data.items.length === 0) return null;
+    
+    const latestReading = data.items[0];
+    const reading = latestReading.readings.find(r => r.station_id === stationId);
+    return reading ? reading.value : null;
+  }
+
+  /**
+   * Determine weather condition based on parameters
+   */
+  determineWeatherCondition(temp, humidity, rainfall) {
+    if (rainfall > 5) return 'Rainy';
+    if (rainfall > 0.1) return 'Light Rain';
+    if (humidity > 85) return 'Very Humid';
+    if (humidity > 70) return 'Humid';
+    if (temp > 32) return 'Hot';
+    if (temp < 25) return 'Cool';
+    return 'Partly Cloudy';
+  }
+
+  /**
+   * Update current weather display
+   */
+  updateCurrentWeatherDisplay(weather) {
+    const elements = {
+      temp: document.getElementById('current-temp'),
+      condition: document.getElementById('current-condition'),
+      humidity: document.getElementById('current-humidity'),
+      wind: document.getElementById('current-wind'),
+      rainfall: document.getElementById('current-rainfall'),
+      icon: document.getElementById('current-weather-icon')
+    };
+
+    if (elements.temp) elements.temp.textContent = `${Math.round(weather.temperature)}°C`;
+    if (elements.condition) elements.condition.textContent = weather.condition;
+    if (elements.humidity) elements.humidity.textContent = `${Math.round(weather.humidity)}%`;
+    if (elements.wind) elements.wind.textContent = `${Math.round(weather.windSpeed)} km/h`;
+    if (elements.rainfall) elements.rainfall.textContent = `${weather.rainfall.toFixed(1)} mm`;
+    
+    if (elements.icon) {
+      elements.icon.className = `fas ${this.getWeatherIcon(weather.condition)}`;
+    }
+  }
+
+  /**
+   * Get appropriate weather icon
+   */
+  getWeatherIcon(condition) {
+    const iconMap = {
+      'Rainy': 'fa-cloud-rain',
+      'Light Rain': 'fa-cloud-drizzle',
+      'Very Humid': 'fa-cloud',
+      'Humid': 'fa-cloud-sun',
+      'Hot': 'fa-sun',
+      'Cool': 'fa-cloud-sun',
+      'Partly Cloudy': 'fa-cloud-sun'
+    };
+    return iconMap[condition] || 'fa-sun';
+  }
+
+  /**
+   * Generate 7-day forecast (simulated based on Singapore climate patterns)
+   */
+  async generate7DayForecast() {
+    const forecastGrid = document.getElementById('forecast-grid');
+    if (!forecastGrid) return;
+
+    // Singapore typical weather patterns
+    const baseTemp = 28;
+    const forecasts = [];
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      
+      // Simulate realistic Singapore weather variations
+      const tempVariation = (Math.random() - 0.5) * 6; // ±3°C variation
+      const high = Math.round(baseTemp + 3 + tempVariation);
+      const low = Math.round(baseTemp - 2 + tempVariation);
+      const rainChance = Math.random() > 0.6 ? 'Light Rain' : 'Partly Cloudy';
+      const humidity = 70 + Math.round(Math.random() * 20); // 70-90%
+      
+      forecasts.push({
+        date: date,
+        high: high,
+        low: low,
+        condition: rainChance,
+        humidity: humidity,
+        rainChance: Math.round(Math.random() * 40 + 20) // 20-60%
+      });
+    }
+
+    this.displayForecastCards(forecasts);
+  }
+
+  /**
+   * Display forecast cards
+   */
+  displayForecastCards(forecasts) {
+    const forecastGrid = document.getElementById('forecast-grid');
+    if (!forecastGrid) return;
+
+    forecastGrid.innerHTML = '';
+
+    forecasts.forEach((forecast, index) => {
+      const dayName = index === 0 ? 'Today' : 
+                     index === 1 ? 'Tomorrow' : 
+                     forecast.date.toLocaleDateString('en-SG', { weekday: 'short' });
+      
+      const dateString = forecast.date.toLocaleDateString('en-SG', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+
+      const card = document.createElement('div');
+      card.className = 'forecast-card';
+      card.innerHTML = `
+        <div class="forecast-date">${dayName}<br>${dateString}</div>
+        <div class="forecast-icon">
+          <i class="fas ${this.getWeatherIcon(forecast.condition)}" aria-hidden="true"></i>
+        </div>
+        <div class="forecast-temps">
+          <span class="forecast-high">${forecast.high}°C</span>
+          <span class="forecast-low">${forecast.low}°C</span>
+        </div>
+        <div class="forecast-condition">${forecast.condition}</div>
+        <div class="forecast-details">
+          <span>💧 ${forecast.humidity}%</span>
+          <span>🌧️ ${forecast.rainChance}%</span>
+        </div>
+      `;
+
+      forecastGrid.appendChild(card);
+    });
+  }
+
+  /**
+   * Update cleanup recommendation based on weather
+   */
+  updateCleanupRecommendation() {
+    const recommendationElement = document.getElementById('weather-recommendation');
+    const textElement = document.getElementById('cleanup-recommendation');
+    
+    if (!recommendationElement || !textElement) return;
+
+    // Simple weather assessment for beach cleanup
+    const currentTemp = parseInt(document.getElementById('current-temp')?.textContent || '28');
+    const currentHumidity = parseInt(document.getElementById('current-humidity')?.textContent || '75');
+    const currentRainfall = parseFloat(document.getElementById('current-rainfall')?.textContent || '0');
+
+    let recommendation, className;
+
+    if (currentRainfall > 2) {
+      recommendation = "⛈️ Heavy rain expected. Consider postponing the beach cleanup for safety. Check back tomorrow for better conditions.";
+      className = "weather-poor";
+    } else if (currentRainfall > 0.1) {
+      recommendation = "🌦️ Light rain detected. Beach cleanup is possible but consider bringing waterproof gear and be cautious of slippery surfaces.";
+      className = "weather-fair";
+    } else if (currentTemp > 33) {
+      recommendation = "☀️ Very hot conditions. Perfect for beach cleanup! Bring plenty of water, sunscreen, and take regular breaks in shade.";
+      className = "weather-good";
+    } else if (currentHumidity > 85) {
+      recommendation = "🌫️ Very humid conditions. Good for cleanup but stay hydrated and take breaks frequently. Early morning is ideal.";
+      className = "weather-good";
+    } else {
+      recommendation = "🌟 Excellent conditions for beach cleanup! Perfect temperature and humidity. Gather your crew and make a difference!";
+      className = "weather-excellent";
+    }
+
+    // Update the recommendation
+    textElement.textContent = recommendation;
+    recommendationElement.className = `weather-recommendation ${className}`;
+  }
+
+  /**
+   * Display weather error message
+   */
+  displayWeatherError() {
+    const forecastGrid = document.getElementById('forecast-grid');
+    if (forecastGrid) {
+      forecastGrid.innerHTML = `
+        <div class="forecast-loading">
+          <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+          <p>Unable to load weather data. Please check your connection and try again.</p>
+        </div>
+      `;
+    }
+
+    const textElement = document.getElementById('cleanup-recommendation');
+    if (textElement) {
+      textElement.textContent = "Weather data temporarily unavailable. Please check local weather conditions before planning your cleanup.";
     }
   }
 

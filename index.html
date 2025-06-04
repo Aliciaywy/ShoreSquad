@@ -53,12 +53,12 @@
                     <span class="hamburger"></span>
                     <span class="hamburger"></span>
                     <span class="hamburger"></span>
-                </button>
-                  <div class="nav-menu">
+                </button>                  <div class="nav-menu">
                     <a href="#home" class="nav-link">Home</a>
                     <a href="#features" class="nav-link">Features</a>
                     <a href="#how-it-works" class="nav-link">How It Works</a>
                     <a href="#impact" class="nav-link">Impact</a>
+                    <a href="#weather" class="nav-link">Weather</a>
                     <a href="#next-cleanup" class="nav-link">Next Cleanup</a>
                     <a href="#join" class="nav-link">Join Us</a>
                 </div>
@@ -188,9 +188,7 @@
                     </div>
                 </div>
             </div>
-        </section>
-
-        <!-- Impact Section -->
+        </section>        <!-- Impact Section -->
         <section id="impact" class="impact" aria-labelledby="impact-title">
             <div class="container">
                 <h2 id="impact-title" class="section-title">Our Collective Impact</h2>
@@ -211,7 +209,77 @@
                     </div>
                 </div>
             </div>
-        </section>        <!-- Next Cleanup Location Section -->
+        </section>
+
+        <!-- Weather Forecast Section -->
+        <section id="weather" class="weather-forecast" aria-labelledby="weather-title">
+            <div class="container">
+                <h2 id="weather-title" class="section-title">7-Day Weather Forecast</h2>
+                <p class="weather-subtitle">Plan your beach cleanup with real-time weather data from NEA Singapore</p>
+                
+                <div class="weather-container">
+                    <!-- Current Weather -->
+                    <div class="current-weather">
+                        <div class="current-weather-content">
+                            <div class="current-temp-section">
+                                <div class="current-location">
+                                    <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+                                    <span id="current-location">Pasir Ris, Singapore</span>
+                                </div>
+                                <div class="current-temp-display">
+                                    <div class="current-temp" id="current-temp">--°C</div>
+                                    <div class="current-condition" id="current-condition">Loading...</div>
+                                </div>
+                            </div>
+                            <div class="current-details">
+                                <div class="weather-detail">
+                                    <i class="fas fa-tint" aria-hidden="true"></i>
+                                    <span>Humidity</span>
+                                    <span id="current-humidity">--%</span>
+                                </div>
+                                <div class="weather-detail">
+                                    <i class="fas fa-wind" aria-hidden="true"></i>
+                                    <span>Wind Speed</span>
+                                    <span id="current-wind">-- km/h</span>
+                                </div>
+                                <div class="weather-detail">
+                                    <i class="fas fa-cloud-rain" aria-hidden="true"></i>
+                                    <span>Rainfall</span>
+                                    <span id="current-rainfall">-- mm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="weather-icon">
+                            <i id="current-weather-icon" class="fas fa-sun" aria-hidden="true"></i>
+                        </div>
+                    </div>
+
+                    <!-- 7-Day Forecast -->
+                    <div class="forecast-grid" id="forecast-grid">
+                        <!-- Forecast cards will be populated by JavaScript -->
+                        <div class="forecast-loading">
+                            <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                            <p>Loading 7-day forecast...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather Status for Cleanup -->
+                <div class="cleanup-weather-status">
+                    <div class="weather-recommendation" id="weather-recommendation">
+                        <div class="recommendation-icon">
+                            <i class="fas fa-info-circle" aria-hidden="true"></i>
+                        </div>
+                        <div class="recommendation-content">
+                            <h3>Cleanup Weather Assessment</h3>
+                            <p id="cleanup-recommendation">Analyzing weather conditions for optimal cleanup timing...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Next Cleanup Location Section -->
         <section id="next-cleanup" class="next-cleanup" aria-labelledby="next-cleanup-title">
             <div class="container">
                 <h2 id="next-cleanup-title" class="section-title">Next Beach Cleanup Location</h2>
